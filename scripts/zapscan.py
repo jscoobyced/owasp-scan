@@ -4,7 +4,8 @@ import time
 import sys
 import getopt
 from zapv2 import ZAPv2
-
+import socket
+from contextlib import closing
 
 def usage():
     print 'Usage:'
@@ -41,7 +42,7 @@ def main():
         elif o == "-s":
             server = a
         elif o == "-p":
-            port = a
+            port = int(a)
         elif o == "-r":
             report = a.replace(".", "").replace("/", "")
         else:
@@ -50,8 +51,30 @@ def main():
         print 'Missing required arguments.'
         usage()
         sys.exit(2)
-    runscan(apikey, url, server, port, report)
+    if check_socket(server, port):
+        runscan(apikey, url, server, port, report)
 
+def check_socket(host, port):
+    retry = 12
+    while retry > 0:
+        if try_connect(host, port) != 1:
+            print "ZAP not yet connected."
+            retry = retry - 1
+            time.sleep(5)
+        else:
+            retry = -1
+
+    if retry != -1:
+        print "Cannot find ZAP. Giving up."
+    return retry == -1
+
+def try_connect(host, port):
+    success=0
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
+        sock.settimeout(5)
+        if sock.connect_ex((host, port)) == 0:
+            success=1
+    return success
 
 def runscan(api, target, zap, port, report):
     zap = ZAPv2(apikey=api,
@@ -95,7 +118,7 @@ def runscan(api, target, zap, port, report):
         print(alert['alert'] + ', risk: ' + alert['risk'])
 
     if report != None:
-        f = open(report + '.html', 'w')
+        f = open('reports/' + report + '.html', 'w')
         f.write(zap.core.htmlreport(apikey=api))
         f.close()
 
