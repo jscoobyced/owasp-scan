@@ -1,0 +1,23 @@
+version: "3"
+services:
+  webapp:
+    # build: "your dockerfile path"
+    # image: "your image"
+    # Expose your port
+    #expose:
+    #  - 5000
+  zap:
+    image: "owasp/zap2docker-stable"
+    command: zap.sh -daemon -port 8080 -host 0.0.0.0 -config api.addrs.addr.name=.* -config api.addrs.addr.regex=true -config api.key=123456
+    expose:
+      - 8080
+    links:
+      - webapp
+  scan:
+    image: "jscdroiddev/owasp-scan"
+    # set the '5000' port below to the exposed port in the 'webapp' service
+    command: sh -c 'sleep 5; python ./scan/zapscan.py -k 123456 -s "zap" -p 8080 -u "http://webapp:5000" -r report'
+    links:
+      - zap
+    volumes:
+      - ./:/scan
